@@ -47,7 +47,7 @@ using namespace mlir;
 using namespace mlir::NVVM;
 
 #ifndef __DEFAULT_CUDATOOLKIT_PATH__
-#define __DEFAULT_CUDATOOLKIT_PATH__ ""
+#define __DEFAULT_CUDATOOLKIT_PATH__ "/usr/local/cuda"
 #endif
 
 extern "C" const unsigned char _mlir_embedded_libdevice[];

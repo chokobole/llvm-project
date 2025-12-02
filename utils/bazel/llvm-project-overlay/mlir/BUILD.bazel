@@ -9434,8 +9434,8 @@ cc_library(
         ":LLVMSupportHeaders",
         ":mlir_c_runner_utils_hdrs",
         "@cuda//:cuda_headers",
-        "@cuda//:cusparse_static",
-        "@cuda//:libcuda",
+        "@cuda//:cuda_so",
+        "@cuda//:cusparse_so",
     ],
 )
 
