@@ -19,6 +19,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/GPU/Utils/GPUUtils.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -36,6 +37,48 @@ namespace mlir {
 } // namespace mlir
 
 using namespace mlir;
+
+/// Returns true if `value` is produced by a chain of LLVM aggregate
+/// constructions (llvm.insertvalue over llvm.poison/undef) where every inserted
+/// element operand is defined by arith.constant. This is used to ensure we only
+/// clone fully-constant aggregate initializations into the kernel.
+static bool isStructConst(Value value) {
+  Operation *op = value.getDefiningOp();
+  if (!op)
+    return false;
+
+  // Poison/Undef are easily cloneable because they are just placeholders.
+  if (isa<LLVM::PoisonOp>(op) || isa<LLVM::UndefOp>(op))
+    return true;
+
+  if (auto insertOp = dyn_cast<LLVM::InsertValueOp>(op)) {
+    Value aggregate = op->getOperand(0);
+    Value inserted = op->getOperand(1);
+    Operation *insertedDef = inserted.getDefiningOp();
+    if (!(isa_and_nonnull<arith::ConstantOp>(insertedDef) ||
+          isa_and_nonnull<LLVM::ConstantOp>(insertedDef))) {
+      return false;
+    }
+    return isStructConst(aggregate);
+  }
+
+  return false;
+}
+
+/// Returns true if the operation produces at least one result that is either
+/// a constant or an aggregate containing constants, suitable for sinking.
+static bool isAggregateConst(Operation *op) {
+  if (!op || op->getNumResults() == 0)
+    return false;
+
+  // Sink any aggregate that is fully composed from constants, regardless of
+  // element bitwidth. This captures constant structs as well.
+  // TODO(batzor): Add support for LLVM array types and nested structs.
+  if (isStructConst(op->getResult(0)))
+      return true;
+
+  return false;
+}
 
 template <typename OpTy>
 static void createForAllDimensions(OpBuilder &builder, Location loc,
@@ -183,6 +226,13 @@ static gpu::GPUFuncOp outlineKernelFuncImpl(gpu::LaunchOp launchOp,
   // due to symbol table manipulation.
   OpBuilder builder(launchOp.getContext());
   Region &launchOpBody = launchOp.getBody();
+
+  // Sink constants and constant aggregates into the launch body so they don't
+  // become kernel arguments when outlining the kernel.
+  std::ignore = sinkOperationsIntoLaunchOp(launchOp, [&](Operation *op) {
+    return isa<arith::ConstantOp>(op) || isa<LLVM::ConstantOp>(op) ||
+           isAggregateConst(op);
+  });
 
   // Identify uses from values defined outside of the scope of the launch
   // operation.
