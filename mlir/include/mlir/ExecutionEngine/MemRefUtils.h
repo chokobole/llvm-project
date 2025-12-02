@@ -174,9 +174,7 @@ public:
            it != end; ++it)
         init(*it, it.getIndices());
     } else {
-      memset(descriptor.data, 0,
-             nElements * sizeof(T) +
-                 alignment.value_or(detail::nextPowerOf2(sizeof(T))));
+      memset(descriptor.data, 0, nElements * sizeof(T));
     }
   }
   /// Take ownership of an existing descriptor with a custom deleter.
