@@ -25,12 +25,18 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "zkir/Dialect/EllipticCurve/IR/EllipticCurveOps.h"
+#include "zkir/Dialect/Field/IR/FieldOps.h"
+#include "zkir/Dialect/ModArith/IR/ModArithOps.h"
+
 #include <algorithm>
 #include <numeric>
 #include <optional>
 
 using namespace mlir;
 using namespace mlir::linalg;
+using namespace mlir::zkir;
 
 /// Include the definitions of the copy operation interface.
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.cpp.inc"
@@ -525,6 +531,9 @@ mlir::linalg::detail::isContractionInterfaceImpl(
   // TODO: more fields than add/mul.
   // clang-format off
   if (!::isContractionBody<
+        elliptic_curve::ScalarMulOp, elliptic_curve::AddOp,
+        mod_arith::MulOp, mod_arith::AddOp,
+        field::MulOp, field::AddOp,
         arith::MulFOp, arith::AddFOp,
         arith::MulIOp, arith::AddIOp,
         complex::MulOp, complex::AddOp,

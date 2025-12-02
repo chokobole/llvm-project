@@ -10544,6 +10544,9 @@ cc_library(
         ":ValueBoundsOpInterface",
         ":ViewLikeInterface",
         "//llvm:Support",
+        "@zkir//zkir/Dialect/EllipticCurve/IR:EllipticCurve",
+        "@zkir//zkir/Dialect/Field/IR:Field",
+        "@zkir//zkir/Dialect/ModArith/IR:ModArith",
     ],
 )
 
