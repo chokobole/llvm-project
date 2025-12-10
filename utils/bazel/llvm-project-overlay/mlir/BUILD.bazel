@@ -4713,6 +4713,8 @@ cc_library(
         ":VectorOpsIncGen",
         ":ViewLikeInterface",
         "//llvm:Support",
+        "@zkir//zkir/Dialect/ModArith/IR:ModArith",
+        "@zkir//zkir/IR:Attributes",
     ],
 )
 

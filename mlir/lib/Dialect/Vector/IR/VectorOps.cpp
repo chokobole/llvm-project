@@ -38,6 +38,8 @@
 #include "mlir/Interfaces/ValueBoundsOpInterface.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "zkir/Dialect/ModArith/IR/ModArithOps.h"
+#include "zkir/IR/Attributes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
@@ -404,8 +406,14 @@ std::optional<int64_t> vector::getConstantVscaleMultiplier(Value value) {
 /// has the correct type, returns it unchanged.
 static Attribute convertIntegerAttr(Attribute attr, Type expectedType) {
   if (auto intAttr = mlir::dyn_cast<IntegerAttr>(attr)) {
-    if (intAttr.getType() != expectedType)
+    if (intAttr.getType() != expectedType) {
+      if (auto modArithType =
+              dyn_cast<zkir::mod_arith::ModArithType>(expectedType)) {
+        return IntegerAttr::get(modArithType.getStorageType(),
+                                intAttr.getInt());
+      }
       return IntegerAttr::get(expectedType, intAttr.getInt());
+    }
   }
   return attr;
 }
@@ -481,6 +489,9 @@ void VectorDialect::initialize() {
 Operation *VectorDialect::materializeConstant(OpBuilder &builder,
                                               Attribute value, Type type,
                                               Location loc) {
+  if (auto op =
+          zkir::mod_arith::ConstantOp::materialize(builder, value, type, loc))
+    return op;
   if (isa<ub::PoisonAttrInterface>(value))
     return value.getDialect().materializeConstant(builder, value, type, loc);
 
@@ -2497,7 +2508,9 @@ static OpFoldResult foldFromElementsToConstant(FromElementsOp fromElementsOp,
     return convertIntegerAttr(attr, destEltType);
   });
 
-  return DenseElementsAttr::get(destVecType, convertedElements);
+  ShapedType convertedVecType =
+      zkir::maybeConvertZkirToBuiltinType(destVecType);
+  return DenseElementsAttr::get(convertedVecType, convertedElements);
 }
 
 OpFoldResult FromElementsOp::fold(FoldAdaptor adaptor) {
