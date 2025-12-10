@@ -7134,6 +7134,8 @@ cc_library(
         ":ValueBoundsOpInterface",
         ":ViewLikeInterface",
         "//llvm:Support",
+        "@zkir//zkir/Dialect/ModArith/IR:ModArith",
+        "@zkir//zkir/IR:Attributes",
     ],
 )
 

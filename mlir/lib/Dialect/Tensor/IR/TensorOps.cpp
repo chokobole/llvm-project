@@ -41,6 +41,9 @@
 #include <optional>
 #include <vector>
 
+#include "zkir/Dialect/ModArith/IR/ModArithOps.h"
+#include "zkir/IR/Attributes.h"
+
 using namespace mlir;
 using namespace mlir::tensor;
 
@@ -53,6 +56,9 @@ using llvm::mod;
 Operation *TensorDialect::materializeConstant(OpBuilder &builder,
                                               Attribute value, Type type,
                                               Location loc) {
+  if (auto op =
+          zkir::mod_arith::ConstantOp::materialize(builder, value, type, loc))
+    return op;
   if (auto op = arith::ConstantOp::materialize(builder, value, type, loc))
     return op;
   if (complex::ConstantOp::isBuildableWith(value, type))
@@ -1465,8 +1471,10 @@ void FromElementsOp::build(OpBuilder &builder, OperationState &result,
 }
 
 OpFoldResult FromElementsOp::fold(FoldAdaptor adaptor) {
-  if (!llvm::is_contained(adaptor.getElements(), nullptr))
-    return DenseElementsAttr::get(getType(), adaptor.getElements());
+  if (!llvm::is_contained(adaptor.getElements(), nullptr)) {
+    ShapedType type = zkir::maybeConvertZkirToBuiltinType(getType());
+    return DenseElementsAttr::get(type, adaptor.getElements());
+  }
   return {};
 }
 
